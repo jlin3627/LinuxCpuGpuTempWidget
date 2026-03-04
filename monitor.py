@@ -7,15 +7,19 @@ CPU_TCTL = 'CPU Tctl'
 CPU_TCCD1 = 'CPU Tccd1'
 GPU_TEMP = 'GPU'
 GPU_POWER = 'GPU Power'
+RAM_USAGE = 'RAM Usage'
 
 def get_all_metrics() -> Dict[str, Optional[float]]:
     """
-    Fetches system temperatures and power metrics.
+    Fetches system temperatures, power metrics, and RAM usage.
     """
-    metrics = {CPU_TCTL: None, CPU_TCCD1: None, GPU_TEMP: None, GPU_POWER: None}
+    metrics = {CPU_TCTL: None, CPU_TCCD1: None, GPU_TEMP: None, GPU_POWER: None, RAM_USAGE: None}
     
     try:
         temps = psutil.sensors_temperatures()
+        
+        # RAM usage percentage
+        metrics[RAM_USAGE] = psutil.virtual_memory().percent
         
         # CPU Metrics (AMD k10temp)
         if 'k10temp' in temps:

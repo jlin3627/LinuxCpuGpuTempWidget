@@ -42,12 +42,13 @@ class SystemMonitorWidget:
     def _setup_ui(self):
         self.metric_controls = {}
         
-        # Updated metric list to include GPU Power
+        # Updated metric list to include GPU Power and RAM Usage
         metrics = [
             ('CPU Tctl', '°C'), 
             ('CPU Tccd1', '°C'), 
             ('GPU', '°C'), 
-            ('GPU Power', 'W')
+            ('GPU Power', 'W'),
+            ('RAM Usage', '%')
         ]
         
         for name, unit in metrics:
@@ -77,10 +78,16 @@ class SystemMonitorWidget:
             }
 
     def _get_color(self, value: float, name: str) -> str:
+        unit = self.metric_controls[name]['unit']
         # Temperature thresholds
-        if '°C' in self.metric_controls[name]['unit']:
+        if '°C' in unit:
             if value < 55: return ACCENT_COLOR
             if value < 75: return WARNING_COLOR
+            return CRITICAL_COLOR
+        # RAM usage thresholds
+        elif '%' in unit:
+            if value < 70: return ACCENT_COLOR
+            if value < 85: return WARNING_COLOR
             return CRITICAL_COLOR
         # Power thresholds (example: green < 100W, amber < 250W, red > 250W)
         else:
