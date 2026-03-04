@@ -48,6 +48,7 @@ class SystemMonitorWidget:
             ('CPU Tccd1', '°C'), 
             ('GPU', '°C'), 
             ('GPU Power', 'W'),
+            ('GPU VRAM', '%'),
             ('RAM Usage', '%')
         ]
         
