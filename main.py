@@ -108,13 +108,22 @@ class SystemMonitorWidget:
             unit = controls['unit']
             
             if value is not None:
-                color = self._get_color(value, name)
-                lbl.config(text=f"{value:.1f}{unit}", fg=color)
+                # Handle dictionary values for RAM Usage
+                if isinstance(value, dict):
+                    percent = value['percent']
+                    used = value['used']
+                    total = value['total']
+                    color = self._get_color(percent, name)
+                    lbl.config(text=f"{used:.1f}/{total:.0f}G ({percent:.0f}%)", fg=color)
+                    graph.add_point(percent)
+                else:
+                    color = self._get_color(value, name)
+                    lbl.config(text=f"{value:.1f}{unit}", fg=color)
+                    graph.add_point(value)
                 
-                # Update graph visuals and data
+                # Update graph visuals
                 graph.line_color = color
                 graph.fill_color = color
-                graph.add_point(value)
             else:
                 lbl.config(text=f"N/A", fg='#444444')
 

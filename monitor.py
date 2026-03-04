@@ -18,8 +18,13 @@ def get_all_metrics() -> Dict[str, Optional[float]]:
     try:
         temps = psutil.sensors_temperatures()
         
-        # RAM usage percentage
-        metrics[RAM_USAGE] = psutil.virtual_memory().percent
+        # RAM usage
+        mem = psutil.virtual_memory()
+        metrics[RAM_USAGE] = {
+            'percent': mem.percent,
+            'used': mem.used / (1024**3),
+            'total': mem.total / (1024**3)
+        }
         
         # CPU Metrics (AMD k10temp)
         if 'k10temp' in temps:
