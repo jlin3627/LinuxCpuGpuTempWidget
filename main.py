@@ -1,69 +1,125 @@
 import tkinter as tk
 from monitor import get_all_metrics
+from graph import SparklineGraph
 
-class CPUTempWidget:
-    def __init__(self, root):
+# Configuration Constants
+REFRESH_MS = 2000
+BG_COLOR = '#121212'
+FG_COLOR = '#888888'
+ACCENT_COLOR = '#00FF41'
+WARNING_COLOR = '#FFCC00'
+CRITICAL_COLOR = '#FF3B30'
+WINDOW_WIDTH = 160
+GRAPH_HEIGHT = 22  # Slightly slimmer to fit 4 pairs comfortably
+
+class SystemMonitorWidget:
+    """The main orchestration widget for the system monitor."""
+    
+    def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("System Monitor")
+        self._setup_window()
+        self._setup_ui()
         
-        # Window configuration
+        # Calculate and set the perfect height based on content
+        self.root.update_idletasks()
+        height = self.root.winfo_reqheight()
+        self.root.geometry(f"{WINDOW_WIDTH}x{height}+100+100")
+        
+        self.update_loop()
+
+    def _setup_window(self):
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
-        self.root.configure(bg='#121212') 
+        self.root.configure(bg=BG_COLOR)
+        # Initial geometry with width only; height is set in __init__
+        self.root.geometry(f"{WINDOW_WIDTH}x100")
 
-        # Layout settings: 3 rows of data
-        self.root.geometry("140x90+100+100")
-
-        self.rows = {}
-        for metric in ['CPU Tctl', 'CPU Tccd1', 'GPU']:
-            frame = tk.Frame(root, bg='#121212')
-            frame.pack(fill='x', padx=10, pady=2)
-            
-            label = tk.Label(frame, text=metric, font=("Helvetica", 8), 
-                             bg='#121212', fg='#888888', width=8, anchor='w')
-            label.pack(side='left')
-            
-            value = tk.Label(frame, text="--°C", font=("Helvetica", 10, "bold"), 
-                             bg='#121212', fg='white', width=6, anchor='e')
-            value.pack(side='right')
-            
-            self.rows[metric] = value
-
-        # Draggable
+        # Draggable logic
         self.root.bind("<Button-1>", self.start_move)
         self.root.bind("<B1-Motion>", self.do_move)
         self.root.bind("<Button-3>", lambda e: self.root.destroy())
 
-        self.update_all()
-
-    def update_all(self):
-        metrics = get_all_metrics()
-        for metric, value_label in self.rows.items():
-            temp = metrics.get(metric)
-            if temp is not None:
-                value_label.config(text=f"{temp:.1f}°C")
-                # Color coding based on value
-                if temp < 55: color = '#00FF41'
-                elif temp < 75: color = '#FFCC00'
-                else: color = '#FF3B30'
-                value_label.config(fg=color)
-            else:
-                value_label.config(text="N/A", fg='#444444')
+    def _setup_ui(self):
+        self.metric_controls = {}
         
-        self.root.after(2000, self.update_all)
+        # Updated metric list to include GPU Power
+        metrics = [
+            ('CPU Tctl', '°C'), 
+            ('CPU Tccd1', '°C'), 
+            ('GPU', '°C'), 
+            ('GPU Power', 'W')
+        ]
+        
+        for name, unit in metrics:
+            section = tk.Frame(self.root, bg=BG_COLOR)
+            section.pack(fill='x', padx=10, pady=(4, 1))
+            
+            # 1. Header Row (Label + Value)
+            header = tk.Frame(section, bg=BG_COLOR)
+            header.pack(fill='x')
+            
+            tk.Label(header, text=name, font=("Helvetica", 8), 
+                     bg=BG_COLOR, fg=FG_COLOR, anchor='w').pack(side='left')
+            
+            val_lbl = tk.Label(header, text=f"--{unit}", font=("Helvetica", 10, "bold"), 
+                               bg=BG_COLOR, fg='white', anchor='e')
+            val_lbl.pack(side='right')
 
-    def start_move(self, event):
-        self.x = event.x
-        self.y = event.y
+            # 2. Sparkline for this specific metric
+            graph = SparklineGraph(section, bg='#1a1a1a', height=GRAPH_HEIGHT)
+            graph.pack(fill='x', pady=(2, 4))
+            
+            # Store references and unit info
+            self.metric_controls[name] = {
+                'label': val_lbl,
+                'graph': graph,
+                'unit': unit
+            }
 
+    def _get_color(self, value: float, name: str) -> str:
+        # Temperature thresholds
+        if '°C' in self.metric_controls[name]['unit']:
+            if value < 55: return ACCENT_COLOR
+            if value < 75: return WARNING_COLOR
+            return CRITICAL_COLOR
+        # Power thresholds (example: green < 100W, amber < 250W, red > 250W)
+        else:
+            if value < 100: return ACCENT_COLOR
+            if value < 250: return WARNING_COLOR
+            return CRITICAL_COLOR
+
+    def update_loop(self):
+        """Main update loop routing data to individual graphs."""
+        metrics = get_all_metrics()
+        
+        for name, value in metrics.items():
+            controls = self.metric_controls.get(name)
+            if not controls: continue
+            
+            lbl = controls['label']
+            graph = controls['graph']
+            unit = controls['unit']
+            
+            if value is not None:
+                color = self._get_color(value, name)
+                lbl.config(text=f"{value:.1f}{unit}", fg=color)
+                
+                # Update graph visuals and data
+                graph.line_color = color
+                graph.fill_color = color
+                graph.add_point(value)
+            else:
+                lbl.config(text=f"N/A", fg='#444444')
+
+        self.root.after(REFRESH_MS, self.update_loop)
+
+    def start_move(self, event): self.x, self.y = event.x, event.y
     def do_move(self, event):
-        deltax = event.x - self.x
-        deltay = event.y - self.y
-        x = self.root.winfo_x() + deltax
-        y = self.root.winfo_y() + deltay
+        x = self.root.winfo_x() + (event.x - self.x)
+        y = self.root.winfo_y() + (event.y - self.y)
         self.root.geometry(f"+{x}+{y}")
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = CPUTempWidget(root)
+    app = SystemMonitorWidget(root)
     root.mainloop()
