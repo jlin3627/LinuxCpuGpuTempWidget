@@ -9,8 +9,8 @@ FG_COLOR = '#888888'
 ACCENT_COLOR = '#00FF41'
 WARNING_COLOR = '#FFCC00'
 CRITICAL_COLOR = '#FF3B30'
-WINDOW_WIDTH = 160
-GRAPH_HEIGHT = 22  # Slightly slimmer to fit 4 pairs comfortably
+WINDOW_WIDTH = 220
+GRAPH_HEIGHT = 28  # Slightly taller for better readability
 
 class SystemMonitorWidget:
     """The main orchestration widget for the system monitor."""
@@ -27,6 +27,10 @@ class SystemMonitorWidget:
         
         self.update_loop()
 
+    def close_app(self, event=None):
+        print(f"Closing app via event: {event}")
+        self.root.destroy()
+
     def _setup_window(self):
         self.root.overrideredirect(True)
         self.root.attributes("-topmost", True)
@@ -34,12 +38,38 @@ class SystemMonitorWidget:
         # Initial geometry with width only; height is set in __init__
         self.root.geometry(f"{WINDOW_WIDTH}x100")
 
-        # Draggable logic
+        # Draggable logic (Left Click)
         self.root.bind("<Button-1>", self.start_move)
         self.root.bind("<B1-Motion>", self.do_move)
-        self.root.bind("<Button-3>", lambda e: self.root.destroy())
+        
+        # Multiple Exit Paths (Global Bindings)
+        self.root.bind_all("<Button-3>", self.close_app)          # Simple Right Click
+        self.root.bind_all("<Control-Button-3>", self.close_app)  # Ctrl + Right Click
+        self.root.bind_all("<q>", self.close_app)                 # 'q' key
+        self.root.bind_all("<Escape>", self.close_app)            # 'Escape' key
 
     def _setup_ui(self):
+        # 0. Title Bar / Header with Close Button
+        title_bar = tk.Frame(self.root, bg='#1a1a1a', height=24)
+        title_bar.pack(fill='x', side='top')
+        title_bar.bind("<Button-1>", self.start_move)
+        title_bar.bind("<B1-Motion>", self.do_move)
+        
+        # System Label
+        tk.Label(title_bar, text=" SYSTEM MONITOR", font=("Helvetica", 7, "bold"),
+                 bg='#1a1a1a', fg='#555555').pack(side='left', padx=5)
+        
+        # The 'X' Button
+        close_btn = tk.Label(title_bar, text="✕", font=("Helvetica", 10, "bold"),
+                             bg='#1a1a1a', fg='#888888', cursor="hand2", padx=8)
+        close_btn.pack(side='right')
+        # Use lambda to avoid event object if not needed, or just pass to close_app
+        close_btn.bind("<Button-1>", self.close_app)
+        
+        # Hover effect for X
+        close_btn.bind("<Enter>", lambda e: close_btn.config(fg=CRITICAL_COLOR, bg='#333333'))
+        close_btn.bind("<Leave>", lambda e: close_btn.config(fg='#888888', bg='#1a1a1a'))
+
         self.metric_controls = {}
         
         # Updated metric list to include GPU Power and RAM Usage
@@ -54,22 +84,37 @@ class SystemMonitorWidget:
         
         for name, unit in metrics:
             section = tk.Frame(self.root, bg=BG_COLOR)
-            section.pack(fill='x', padx=10, pady=(4, 1))
+            section.pack(fill='x', padx=10, pady=(5, 2))
             
             # 1. Header Row (Label + Value)
             header = tk.Frame(section, bg=BG_COLOR)
             header.pack(fill='x')
+            header.bind("<Button-1>", self.start_move)
+            header.bind("<B1-Motion>", self.do_move)
             
-            tk.Label(header, text=name, font=("Helvetica", 8), 
-                     bg=BG_COLOR, fg=FG_COLOR, anchor='w').pack(side='left')
+            lbl_name = tk.Label(header, text=name, font=("Helvetica", 9), 
+                                bg=BG_COLOR, fg=FG_COLOR, anchor='w')
+            lbl_name.pack(side='left')
+            lbl_name.bind("<Button-1>", self.start_move)
+            lbl_name.bind("<B1-Motion>", self.do_move)
             
-            val_lbl = tk.Label(header, text=f"--{unit}", font=("Helvetica", 10, "bold"), 
+            val_lbl = tk.Label(header, text=f"--{unit}", font=("Helvetica", 11, "bold"), 
                                bg=BG_COLOR, fg='white', anchor='e')
             val_lbl.pack(side='right')
+            val_lbl.bind("<Button-1>", self.start_move)
+            val_lbl.bind("<B1-Motion>", self.do_move)
+
+            # Define scales per unit for better visualization
+            m_min, m_max = 30, 85
+            if unit == '%': m_min, m_max = 0, 100
+            elif unit == 'W': m_min, m_max = 0, 150
 
             # 2. Sparkline for this specific metric
-            graph = SparklineGraph(section, bg='#1a1a1a', height=GRAPH_HEIGHT)
+            graph = SparklineGraph(section, bg='#1a1a1a', height=GRAPH_HEIGHT,
+                                   min_scale=m_min, max_scale=m_max)
             graph.pack(fill='x', pady=(2, 4))
+            graph.bind("<Button-1>", self.start_move)
+            graph.bind("<B1-Motion>", self.do_move)
             
             # Store references and unit info
             self.metric_controls[name] = {

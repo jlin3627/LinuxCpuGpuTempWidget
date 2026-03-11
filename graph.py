@@ -5,7 +5,8 @@ from typing import List, Optional
 class SparklineGraph(tk.Canvas):
     """A lightweight sparkline graph component for Tkinter."""
     
-    def __init__(self, master, width=150, height=50, max_points=60, **kwargs):
+    def __init__(self, master, width=150, height=50, max_points=60, 
+                 min_scale=30, max_scale=65, **kwargs):
         super().__init__(master, width=width, height=height, 
                          highlightthickness=0, bd=0, **kwargs)
         
@@ -15,8 +16,8 @@ class SparklineGraph(tk.Canvas):
         # UI Config
         self.line_color = '#00FF41'
         self.fill_color = '#00FF41'
-        self.min_scale = 30
-        self.max_scale = 65
+        self.min_scale = min_scale
+        self.max_scale = max_scale
 
     def add_point(self, value: Optional[float]):
         """Adds a data point and triggers a redraw."""
